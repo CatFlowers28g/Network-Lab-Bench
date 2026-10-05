@@ -1,4 +1,4 @@
-/* Lab Bench scenario questions: original, objective-tagged. Content: CC BY-SA 4.0.
+/* Network Lab Bench scenario questions: original, objective-tagged. Content: CC BY-SA 4.0.
    Format: [objective, question, options, correct index (or array for multi-select), explanation] */
 
 "use strict";

@@ -1,4 +1,4 @@
-/* Lab Bench simulation engine: layer 3 and services. MIT License. */
+/* Network Lab Bench simulation engine: layer 3 and services. MIT License. */
 
 "use strict";
 function ifCfg(i){ const ip = ipToInt(i.ip), n = maskLen(i.mask); return ip!=null && n!=null && n>=8 ? {ip, n} : null; }

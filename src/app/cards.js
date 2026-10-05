@@ -28,7 +28,7 @@ function ankiText(list){
   for (const c of list){
     const front = (c.context ? `<div style="font-size:0.85em;opacity:0.75">${ankiEsc(c.context)}</div><br>` : "") + ankiEsc(c.front);
     const back = ankiEsc(c.back) + (c.extra ? `<br><br><div style="font-size:0.85em">${ankiEsc(c.extra)}</div>` : "")
-      + `<br><div style="font-size:0.75em;opacity:0.6">Lab Bench: ${ankiEsc(c.labTitle)}${c.objective ? ", "+ankiEsc(c.objective) : ""}</div>`;
+      + `<br><div style="font-size:0.75em;opacity:0.6">Network Lab Bench: ${ankiEsc(c.labTitle)}${c.objective ? ", "+ankiEsc(c.objective) : ""}</div>`;
     const obj = String(c.objective||"").match(/^\d\.\d+/);
     const tags = ["NetPlus", "NetPlus::"+dom(c.domain).name.replace(/\s+/g,"_"), obj ? "NetPlus::Obj_"+obj[0] : ""].filter(Boolean).join(" ");
     lines.push([c.id, front, back, tags].join("\t"));

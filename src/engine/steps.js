@@ -1,4 +1,4 @@
-/* Lab Bench step-by-step explanations. MIT License.
+/* Network Lab Bench step-by-step explanations. MIT License.
    Deterministic: subnetting and IPv6 steps are computed, and sim hints come from comparing the learner's
    configuration with a known-good solution and from the engine's own packet trace. */
 

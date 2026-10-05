@@ -1,4 +1,4 @@
-/* Lab Bench question generators. MIT License.
+/* Network Lab Bench question generators. MIT License.
    Every question: {key, obj, prompt, options, answer:[idx], multi, explanation, source}. Keys are stable for spaced repetition. */
 
 "use strict";

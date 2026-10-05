@@ -1,4 +1,4 @@
-# Contributing to Lab Bench
+# Contributing to Network Lab Bench
 
 Thanks for helping. The two most valuable contributions are **new labs** and **accuracy fixes**.
 

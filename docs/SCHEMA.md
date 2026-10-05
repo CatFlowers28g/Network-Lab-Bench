@@ -1,4 +1,4 @@
-# Lab Bench data schema
+# Network Lab Bench data schema
 
 All labs are JSON-compatible objects: `{id, title, domain, difficulty (1-3), objective, objectives:[], scenario, exhibit?, tasks:[...]}`.
 

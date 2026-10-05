@@ -68,7 +68,7 @@ function homeView(){
   const tabs = h("div",{class:"tabs", role:"tablist"}, TABS.map(([k,t])=>h("button",{class:"tab", role:"tab","aria-selected":ui.tab===k?"true":"false", onclick:()=>{ ui.tab=k; render(); }}, k==="cards" && Object.keys(store.cards).length ? `${t} (${Object.keys(store.cards).length})` : k==="path" && pathN ? `${t} (${pathN})` : t)));
   const body = {labs:labsTab, path:pathTab, quiz:quizTab, exam:examTab, progress:progressTab, cards:cardsTab, create:createTab, settings:settingsTab}[ui.tab]();
   return h("div",null,
-    h("div",{class:"top"}, h("div",null, h("h1",null,"Lab Bench"), h("div",{class:"sub"},"Hands-on Network+ practice, organized by topic"))),
+    h("div",{class:"top"}, h("div",null, h("h1",null,"Network Lab Bench"), h("div",{class:"sub"},"Hands-on Network+ practice, organized by topic"))),
     panel, h("p",{class:"panel-note"},"Each port is a topic. Its light shows how you're doing: green at 85% and up, amber at 60%, red below, dark until you start. Tap a port to see just that topic."),
     levelBar, actions, tabs, body);
 }
@@ -138,7 +138,7 @@ function pathTab(){
     h("div",{class:"form"}, h("b",null,"Your progress by level"), levelRows,
       h("div",{class:"row"}, h("span",{class:"small"},"Your level:"), levelPicker(false))),
     h("div",{class:"form", style:"margin-top:14px"}, h("b",null,"Add labs to your path"),
-      h("p",{class:"small", style:"margin:0"},"Pick a topic and levels and Lab Bench adds the matching labs, easiest first. You can also tap “+ Path” on any lab in the Labs tab."),
+      h("p",{class:"small", style:"margin:0"},"Pick a topic and levels and Network Lab Bench adds the matching labs, easiest first. You can also tap “+ Path” on any lab in the Labs tab."),
       h("div",{class:"row"},
         sel(B.cat, [["all","All topics"],...CATEGORIES.map(c=>[c.id,c.name])], v=>B.cat=v, "Topic"),
         sel(B.levels, [["1-3","Easy, then Medium, then Hard"],["1","Easy only"],["2","Medium only"],["3","Hard only"],["2-3","Medium, then Hard"]], v=>B.levels=v, "Levels"),
@@ -171,7 +171,7 @@ function settingsTab(){
       h("div",{class:"row"}, h("button",{class:"btn", onclick:async()=>{ try{ await platform.saveFile(`lab-bench-backup-${new Date().toISOString().slice(0,10)}.json`, store.exportAll(), "application/json"); msg.textContent = "Backup saved."; }catch(e){ msg.textContent = e && e.code==="declined" ? "Cancelled." : "Downloads aren't available here."; } }},"Download backup"), h("label",{class:"btn"}, "Import backup", h("span",{class:"visually-hidden"}, file))),
       h("div",{class:"row"}, h("button",{class:"btn ghost danger", onclick:()=>{ if (confirm("Erase all progress, review schedules and flashcards? Your custom labs, level and path are kept.")){ store.resetAll(); msg.textContent = "Progress reset."; render(); } }},"Reset progress")), msg),
     h("div",{class:"form", style:"margin-top:14px"}, h("b",null,"About"),
-      h("p",{class:"small", style:"margin:0"},`Lab Bench ${APP_VERSION} is free, open-source practice software aligned to the CompTIA Network+ N10-009 exam objectives. It is not affiliated with or endorsed by CompTIA. CompTIA and Network+ are trademarks of CompTIA, Inc. Code is MIT licensed; lab and question content is CC BY-SA 4.0.`),
+      h("p",{class:"small", style:"margin:0"},`Network Lab Bench ${APP_VERSION} is free, open-source practice software aligned to the CompTIA Network+ N10-009 exam objectives. It is not affiliated with or endorsed by CompTIA. CompTIA and Network+ are trademarks of CompTIA, Inc. Code is MIT licensed; lab and question content is CC BY-SA 4.0.`),
       h("p",{class:"small", style:"margin:0"},`Content: ${SIM_LABS.length} network sims, ${WIFI_LABS.length} wireless labs, ${STATIC_LABS.length + GEN_LABS.length} question-style labs, an endless random fault generator, ${TERM_GROUPS.reduce((s,g)=>s+g.items.length,0)} definitions, ${SCENARIOS.length} scenario questions, ${PORTS_TABLE.length} ports and ${ACRONYMS.length} acronyms.`)));
 }
 /* ---- lab view ---- */

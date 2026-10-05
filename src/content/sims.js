@@ -1,4 +1,4 @@
-/* Lab Bench built-in network simulations. Content: CC BY-SA 4.0. Every sim is verified by tests/run.js:
+/* Network Lab Bench built-in network simulations. Content: CC BY-SA 4.0. Every sim is verified by tests/run.js:
    it must start with at least one failing requirement, and its solution must make every requirement pass. */
 
 "use strict";

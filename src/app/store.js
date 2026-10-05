@@ -70,7 +70,7 @@ const store = {
   removeCard(id){ delete this.cards[id]; this.saveLocal(); this.pushCards([id]); },
   exportAll(){ return JSON.stringify({app:"lab-bench", version:1, exportedAt:new Date().toISOString(), progress:this.progress, custom:this.custom, cards:this.cards}, null, 1); },
   importAll(text){
-    const d = JSON.parse(text); if (!d || d.app!=="lab-bench") throw new Error("That file isn't a Lab Bench backup.");
+    const d = JSON.parse(text); if (!d || d.app!=="lab-bench") throw new Error("That file isn't a Network Lab Bench backup.");
     this.progress = mergeProgress(d.progress||{}, this.progress);
     const ids = new Set(this.custom.map(l=>l.id)); for (const l of (d.custom||[]).map(safeValidate).filter(Boolean)) if (!ids.has(l.id)) this.custom.push(l);
     for (const [id,c] of Object.entries(d.cards||{})) if (!this.cards[id] || (c.updatedAt||0) > (this.cards[id].updatedAt||0)) this.cards[id] = c;

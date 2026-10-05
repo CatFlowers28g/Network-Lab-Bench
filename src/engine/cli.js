@@ -1,4 +1,4 @@
-/* Lab Bench simulation engine: terminals. MIT License. */
+/* Network Lab Bench simulation engine: terminals. MIT License. */
 
 "use strict";
 const longIf = s => String(s).replace(/^gi(?=\d)/i,"GigabitEthernet").replace(/^fa(?=\d)/i,"FastEthernet").replace(/^te(?=\d)/i,"TenGigabitEthernet").replace(/^po(?=\d)/i,"Port-channel");

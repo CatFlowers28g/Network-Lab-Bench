@@ -1,5 +1,5 @@
 "use strict";
-/* Lab Bench simulation engine: core (addressing, physical layer, STP, LACP, PoE, layer 2).
+/* Network Lab Bench simulation engine: core (addressing, physical layer, STP, LACP, PoE, layer 2).
    MIT License. Plain functions on purpose: this file is concatenated into the app and into the Node test bundle. */
 
 const HOST_KINDS = ["pc","laptop","server","printer","phone","ap"];
@@ -348,7 +348,7 @@ function ifaceDomain(net, R, i){
   return l2Domain(net, {dev:R.id, port:phys(i), tag:vnum(i.vlan)});
 }
 
-/* Lab Bench simulation engine: layer 3 and services. MIT License. */
+/* Network Lab Bench simulation engine: layer 3 and services. MIT License. */
 
 function ifCfg(i){ const ip = ipToInt(i.ip), n = maskLen(i.mask); return ip!=null && n!=null && n>=8 ? {ip, n} : null; }
 function routerIfUp(net, R, i){
@@ -867,7 +867,7 @@ function checkNetTask(t){
   return {startAllPass: startRes.every(r=>r.pass), solvedAllPass: res.every(r=>r.pass), res, startRes};
 }
 
-/* Lab Bench simulation engine: terminals. MIT License. */
+/* Network Lab Bench simulation engine: terminals. MIT License. */
 
 const longIf = s => String(s).replace(/^gi(?=\d)/i,"GigabitEthernet").replace(/^fa(?=\d)/i,"FastEthernet").replace(/^te(?=\d)/i,"TenGigabitEthernet").replace(/^po(?=\d)/i,"Port-channel");
 const shortIf = s => String(s).replace(/^gigabitethernet/i,"Gi").replace(/^fastethernet/i,"Fa").replace(/^tengigabitethernet/i,"Te");
@@ -1383,7 +1383,7 @@ function deviceCmd(net, d, raw){
 }
 function runCommand(net, d, raw){ net.reset(); return isHost(d) ? hostCmd(net, d, raw) : deviceCmd(net, d, raw); }
 
-/* Lab Bench wireless model. MIT License.
+/* Network Lab Bench wireless model. MIT License.
    Distances are meters on a floor plan. Signal is a simplified linear model: -35 dBm at the AP, about -75 dBm at the coverage edge. */
 
 const WIFI_RANGE = {"2.4":{low:16, medium:26, high:36}, "5":{low:12, medium:19, high:27}, "6":{low:10, medium:16, high:22}};
@@ -1485,7 +1485,7 @@ function wifiSolutionText(t){
   return (t.solution||[]).map(s=>{ const a = t.aps.find(x=>x.id===s.ap); return `${a ? a.name : s.ap}: ` + Object.entries(s.set).map(([k,v])=>k==="security" ? `security ${SEC_NAMES[v]||v}` : k==="band" ? `band ${v} GHz` : k==="width" ? `channel width ${v} MHz` : `${k} ${v}`).join(", "); });
 }
 
-/* Lab Bench random fault generator. MIT License.
+/* Network Lab Bench random fault generator. MIT License.
    Builds a known-good network from a template, injects 1-3 realistic faults, and keeps the result only if
    the engine confirms the faults break at least one requirement and the recorded fixes restore every one. */
 
@@ -1618,7 +1618,7 @@ function generateFaultLab(seed, opts){
   return null;
 }
 
-/* Lab Bench question generators. MIT License.
+/* Network Lab Bench question generators. MIT License.
    Every question: {key, obj, prompt, options, answer:[idx], multi, explanation, source}. Keys are stable for spaced repetition. */
 
 const OBJECTIVES = {
@@ -1708,7 +1708,7 @@ function srsUpdate(rec, correct, now){
   return rec;
 }
 
-/* Lab Bench step-by-step explanations. MIT License.
+/* Network Lab Bench step-by-step explanations. MIT License.
    Deterministic: subnetting and IPv6 steps are computed, and sim hints come from comparing the learner's
    configuration with a known-good solution and from the engine's own packet trace. */
 
@@ -1869,7 +1869,7 @@ function wifiHints(t, st){
     `${wifiSolutionText({aps:st.aps, solution:[s]})[0]}. ${info.why}`]};
 }
 
-/* Lab Bench knowledge base: original definitions grouped by objective. Content: CC BY-SA 4.0.
+/* Network Lab Bench knowledge base: original definitions grouped by objective. Content: CC BY-SA 4.0.
    Each group generates questions both ways (definition -> term, term -> definition) with distractors from the same group. */
 
 const TERM_GROUPS = [
@@ -2234,7 +2234,7 @@ const TERM_GROUPS = [
 const PORTS_TABLE = [["FTP","20/21","TCP"],["SFTP","22","TCP"],["SSH","22","TCP"],["Telnet","23","TCP"],["SMTP","25","TCP"],["DNS","53","TCP and UDP"],["DHCP","67/68","UDP"],["TFTP","69","UDP"],["HTTP","80","TCP"],["NTP","123","UDP"],["SNMP","161/162","UDP"],["LDAP","389","TCP"],["HTTPS","443","TCP"],["SMB","445","TCP"],["Syslog","514","UDP"],["SMTPS","587","TCP"],["LDAPS","636","TCP"],["SQL Server","1433","TCP"],["RDP","3389","TCP"],["SIP","5060/5061","TCP and UDP"]];
 const ACRONYMS = [["ACL","Access control list"],["APIPA","Automatic Private IP Addressing"],["ARP","Address Resolution Protocol"],["BGP","Border Gateway Protocol"],["BSSID","Basic service set identifier"],["CAM","Content-addressable memory"],["CIDR","Classless Inter-Domain Routing"],["CRC","Cyclic redundancy check"],["DAI","Dynamic ARP Inspection"],["DHCP","Dynamic Host Configuration Protocol"],["DNSSEC","Domain Name System Security Extensions"],["EIGRP","Enhanced Interior Gateway Routing Protocol"],["ESP","Encapsulating Security Payload"],["FHRP","First Hop Redundancy Protocol"],["GRE","Generic Routing Encapsulation"],["IaC","Infrastructure as code"],["IDF","Intermediate distribution frame"],["IKE","Internet Key Exchange"],["IPAM","IP address management"],["LACP","Link Aggregation Control Protocol"],["LLDP","Link Layer Discovery Protocol"],["MDF","Main distribution frame"],["MDIX","Medium dependent interface crossover"],["MIB","Management information base"],["MTBF","Mean time between failures"],["MTTR","Mean time to repair"],["MTU","Maximum transmission unit"],["NAC","Network access control"],["NFV","Network functions virtualization"],["NTS","Network Time Security"],["OSPF","Open Shortest Path First"],["PAT","Port address translation"],["PDU","Power distribution unit (or protocol data unit)"],["PoE","Power over Ethernet"],["PTP","Precision Time Protocol"],["QSFP","Quad small form-factor pluggable"],["RADIUS","Remote Authentication Dial-In User Service"],["RPO","Recovery point objective"],["RSTP","Rapid Spanning Tree Protocol"],["RTO","Recovery time objective"],["SAML","Security Assertion Markup Language"],["SASE","Secure access service edge"],["SD-WAN","Software-defined wide area network"],["SFP","Small form-factor pluggable"],["SIEM","Security information and event management"],["SLA","Service-level agreement"],["SLAAC","Stateless address autoconfiguration"],["SNMP","Simple Network Management Protocol"],["SSE","Security service edge"],["SVI","Switch virtual interface"],["TACACS+","Terminal Access Controller Access-Control System Plus"],["UPS","Uninterruptible power supply"],["VIP","Virtual IP"],["VLSM","Variable-length subnet mask"],["VPC","Virtual private cloud"],["VXLAN","Virtual Extensible LAN"],["WPA","Wi-Fi Protected Access"],["ZTA","Zero trust architecture"]];
 
-/* Lab Bench scenario questions: original, objective-tagged. Content: CC BY-SA 4.0.
+/* Network Lab Bench scenario questions: original, objective-tagged. Content: CC BY-SA 4.0.
    Format: [objective, question, options, correct index (or array for multi-select), explanation] */
 
 const SCENARIOS = [
@@ -2319,7 +2319,7 @@ const SCENARIOS = [
 ["5.5","Which command shows the ports a Windows server is listening on?",["ipconfig /all","netstat -an","tracert","arp -a"],1,"netstat -an lists connections and listening ports."]
 ];
 
-/* Lab Bench built-in network simulations. Content: CC BY-SA 4.0. Every sim is verified by tests/run.js:
+/* Network Lab Bench built-in network simulations. Content: CC BY-SA 4.0. Every sim is verified by tests/run.js:
    it must start with at least one failing requirement, and its solution must make every requirement pass. */
 
 const P = (name, mode, vlan, extra) => ({name, mode, vlan, allowed:"all", native:1, shutdown:false, ...(extra||{})});
@@ -2649,7 +2649,7 @@ const SIM_LABS = [
     explanation:"An internet gateway only passes traffic for instances with public IPs. Private subnets send 0.0.0.0/0 to a NAT gateway in a public subnet instead. Security groups are stateful allow lists, so scope the source to the subnet that needs access."})]}
 ];
 
-/* Lab Bench built-in wireless labs. Content: CC BY-SA 4.0. Verified by tests/run.js. */
+/* Network Lab Bench built-in wireless labs. Content: CC BY-SA 4.0. Verified by tests/run.js. */
 
 const AP = (id, name, x, y, o) => ({id, name, x, y, band:"2.4", channel:1, width:20, power:"medium", ssid:"Corp", security:"wpa2-psk", antenna:"omni", heading:0, enabled:true, editable:true, ...o});
 const CL = (id, name, x, y, o) => ({id, name, x, y, bands:["2.4","5"], security:["wpa2-psk","wpa3-sae","wpa2-ent","wpa3-ent"], ssid:"Corp", ...o});

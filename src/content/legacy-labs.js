@@ -1,4 +1,4 @@
-/* Lab Bench built-in question-style labs. Content: CC BY-SA 4.0. */
+/* Network Lab Bench built-in question-style labs. Content: CC BY-SA 4.0. */
 "use strict";
 /* ---------- built-in labs ---------- */
 function pingOk(ip, ms, ttl){

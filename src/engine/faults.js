@@ -1,4 +1,4 @@
-/* Lab Bench random fault generator. MIT License.
+/* Network Lab Bench random fault generator. MIT License.
    Builds a known-good network from a template, injects 1-3 realistic faults, and keeps the result only if
    the engine confirms the faults break at least one requirement and the recorded fixes restore every one. */
 

@@ -1,4 +1,4 @@
-/* Lab Bench knowledge base: original definitions grouped by objective. Content: CC BY-SA 4.0.
+/* Network Lab Bench knowledge base: original definitions grouped by objective. Content: CC BY-SA 4.0.
    Each group generates questions both ways (definition -> term, term -> definition) with distractors from the same group. */
 
 "use strict";

@@ -1,4 +1,4 @@
-/* Lab Bench simulation engine: core (addressing, physical layer, STP, LACP, PoE, layer 2).
+/* Network Lab Bench simulation engine: core (addressing, physical layer, STP, LACP, PoE, layer 2).
    MIT License. Plain functions on purpose: this file is concatenated into the app and into the Node test bundle. */
 
 "use strict";

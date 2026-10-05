@@ -1,4 +1,4 @@
-/* Lab Bench wireless model. MIT License.
+/* Network Lab Bench wireless model. MIT License.
    Distances are meters on a floor plan. Signal is a simplified linear model: -35 dBm at the AP, about -75 dBm at the coverage edge. */
 
 "use strict";

@@ -1,4 +1,4 @@
-/* Lab Bench built-in wireless labs. Content: CC BY-SA 4.0. Verified by tests/run.js. */
+/* Network Lab Bench built-in wireless labs. Content: CC BY-SA 4.0. Verified by tests/run.js. */
 
 "use strict";
 const AP = (id, name, x, y, o) => ({id, name, x, y, band:"2.4", channel:1, width:20, power:"medium", ssid:"Corp", security:"wpa2-psk", antenna:"omni", heading:0, enabled:true, editable:true, ...o});

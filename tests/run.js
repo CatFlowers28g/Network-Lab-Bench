@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Lab Bench test suite. Run: node build.js && node tests/run.js  (no dependencies) */
+/* Network Lab Bench test suite. Run: node build.js && node tests/run.js  (no dependencies) */
 const E = require("../dist/engine.cjs");
 let pass = 0, fail = 0; const fails = [];
 const ok = (cond, name, info) => { if (cond) pass++; else { fail++; fails.push(name + (info ? `: ${info}` : "")); } };

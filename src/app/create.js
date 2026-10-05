@@ -30,7 +30,7 @@ function createTab(){
 
   const imp = h("details",{class:"import"},
     h("summary",null,"Import a lab from JSON"),
-    h("p",{class:"small muted", style:"margin-top:8px"},"Paste a lab (or a list of labs) in the Lab Bench format, for example one Claude wrote for you in chat."),
+    h("p",{class:"small muted", style:"margin-top:8px"},"Paste a lab (or a list of labs) in the Network Lab Bench format, for example one Claude wrote for you in chat."),
     h("textarea",{"aria-label":"Lab JSON", oninput:e=>{ui.importText=e.target.value;}}, ui.importText),
     h("div",{class:"row", style:"margin-top:8px"}, h("button",{class:"btn", onclick:doImport},"Import"), h("span",{class:"small", role:"status"}, ui.importMsg)));
   return h("div",null, h("p",{class:"small muted"}, "Describe what you want to practice and Claude writes new labs. Network and wireless sims are checked by the simulator before they're saved; question-style labs are checked for format only, so stay critical."), form, imp);
