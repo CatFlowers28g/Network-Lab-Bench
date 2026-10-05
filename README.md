@@ -2,6 +2,8 @@
 
 **Free, open-source, hands-on practice for the CompTIA Network+ (N10-009) exam.**
 
+**[Open the app](https://catflowers28g.github.io/Network-Lab-Bench/)** · [Download for offline use](https://github.com/CatFlowers28g/Network-Lab-Bench/releases/latest/download/lab-bench.html)
+
 Lab Bench is a network simulator and study app in a single HTML file. Open it in any browser, on a phone or a computer, with no install and no account. It works offline.
 
 > Lab Bench is independent study software aligned to the N10-009 exam objectives. It is not affiliated with, endorsed by, or sponsored by CompTIA. CompTIA and Network+ are trademarks of CompTIA, Inc. It contains no CompTIA exam questions or copyrighted CompTIA text.
@@ -22,9 +24,13 @@ Lab Bench is a network simulator and study app in a single HTML file. Open it in
 
 ## Use it
 
-Download `dist/lab-bench.html` and open it, or use the hosted copy if this repository has GitHub Pages turned on (the root `index.html` opens the app). That's it. Progress is saved in your browser; use **Settings, Download backup** to move it between devices.
+**[Open Lab Bench in your browser](https://catflowers28g.github.io/Network-Lab-Bench/)**: nothing to install, always the latest version.
 
-To host it, put `dist/lab-bench.html` on any static host (GitHub Pages works).
+Want an offline copy? **[Download lab-bench.html](https://github.com/CatFlowers28g/Network-Lab-Bench/releases/latest/download/lab-bench.html)** and open it in any browser.
+
+Progress is saved in your browser; use **Settings, Download backup** to move it between devices.
+
+To host your own copy, put `dist/lab-bench.html` on any static host (GitHub Pages works).
 
 ## Build and test
 
