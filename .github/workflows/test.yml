@@ -1,0 +1,16 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node build.js
+      - run: node tests/run.js
+      - run: npm install
+      - run: node tests/ui-sweep.js
+      - name: Make sure the committed dist/ matches the source
+        run: git diff --exit-code dist/lab-bench.html

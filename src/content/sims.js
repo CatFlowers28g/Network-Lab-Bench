@@ -1,0 +1,330 @@
+/* Lab Bench built-in network simulations. Content: CC BY-SA 4.0. Every sim is verified by tests/run.js:
+   it must start with at least one failing requirement, and its solution must make every requirement pass. */
+
+"use strict";
+const P = (name, mode, vlan, extra) => ({name, mode, vlan, allowed:"all", native:1, shutdown:false, ...(extra||{})});
+const H = (id, kind, name, x, y, cfg, editable=true) => ({id, kind, name, x, y, editable, mode:"static", ip:"", mask:"", gw:"", dns:"", ...cfg});
+const IF = (name, ip, mask, extra) => ({name, vlan:null, ip, mask, helper:"", ...(extra||{})});
+const M24 = "255.255.255.0", M30 = "255.255.255.252";
+const SW = (id, name, x, y, ports, extra) => ({id, kind:"switch", name, x, y, editable:true, ports, ...(extra||{})});
+const RT = (id, name, x, y, ifaces, extra) => ({id, kind:"router", name, x, y, editable:true, ifaces, defaultRoute:"", ...(extra||{})});
+const NET = (prompt, o) => ({type:"net", prompt: prompt || "Make every requirement pass.", ...o});
+const ISP = (x, y, ip) => ({id:"isp", kind:"cloud", name:"Internet", x, y, editable:false, ip, records:{"comptia.org":"198.51.100.24","www.comptia.org":"198.51.100.24","updates.example.com":"203.0.113.80"}});
+
+const SIM_LABS = [
+{ id:"s-branch", title:"Sim: get the branch back online", domain:"troubleshooting", difficulty:2, objective:"5.3", objectives:["5.3","5.5"],
+  scenario:"Users on PC-2 and PC-3 can't browse the web. PC-1 works fine. R1 and DNS-01 are managed by the WAN team and are locked. Investigate from the PCs and the switch, then fix the configuration.",
+  tasks:[NET(null,{
+    devices:[ISP(92,4,"203.0.113.1"),
+      RT("r1","R1",92,42,[IF("Gi0/0","203.0.113.2",M30),IF("Gi0/1","192.168.50.1",M24)],{editable:false, defaultRoute:"203.0.113.1"}),
+      SW("sw1","SW1",50,52,[P("Gi0/1","access",50),P("Gi0/2","access",50),P("Gi0/3","access",1),P("Gi0/4","access",50),P("Gi0/24","access",50)],{vlanNames:{"50":"BRANCH"}}),
+      H("srv","server","DNS-01",8,30,{ip:"192.168.50.5", mask:M24, gw:"192.168.50.1", dns:"192.168.50.5", forwarder:"8.8.8.8", dnsRecords:{"intranet.branch.local":"192.168.50.5","dns-01.branch.local":"192.168.50.5"}}, false),
+      H("pc1","pc","PC-1",8,94,{ip:"192.168.50.11", mask:M24, gw:"192.168.50.1", dns:"192.168.50.5"}),
+      H("pc2","pc","PC-2",42,94,{ip:"192.168.50.12", mask:M24, gw:"192.168.50.254", dns:"192.168.50.5"}),
+      H("pc3","pc","PC-3",76,94,{ip:"192.168.50.13", mask:M24, gw:"192.168.50.1", dns:"192.168.50.5"})],
+    links:[["isp","WAN","r1","Gi0/0"],["r1","Gi0/1","sw1","Gi0/24"],["srv","NIC","sw1","Gi0/4"],["pc1","NIC","sw1","Gi0/1"],["pc2","NIC","sw1","Gi0/2"],["pc3","NIC","sw1","Gi0/3"]],
+    goals:[{type:"ping", from:"pc1", to:"comptia.org", label:"PC-1 can reach comptia.org"},{type:"ping", from:"pc2", to:"comptia.org", label:"PC-2 can reach comptia.org"},{type:"ping", from:"pc3", to:"comptia.org", label:"PC-3 can reach comptia.org"},{type:"ping", from:"pc3", to:"intranet.branch.local", label:"PC-3 can reach intranet.branch.local"}],
+    solution:[{dev:"pc2", set:{gw:"192.168.50.1"}},{dev:"sw1", port:"Gi0/3", set:{vlan:50}}],
+    explanation:"PC-2's default gateway was 192.168.50.254, which nothing answers, so anything off-subnet failed while local traffic (including DNS) still worked. PC-3's switch port was in VLAN 1 instead of 50, cutting it off entirely. Compare ipconfig with a working PC, ping the gateway, and run show vlan brief."})]},
+
+{ id:"s-roas", title:"Sim: build router-on-a-stick", domain:"implementation", difficulty:3, objective:"2.2", objectives:["2.2","2.1"],
+  scenario:"Staff PCs in VLAN 10 must print to Printer-1 in VLAN 20. R1 routes between the VLANs over one link to SW1. The PCs and printer already use the .1 address of their subnet as the gateway. Finish R1 and SW1.",
+  tasks:[NET(null,{
+    devices:[RT("r1","R1",50,4,[IF("Gi0/0.10","","",{vlan:10}),IF("Gi0/0.20","","",{vlan:20})]),
+      SW("sw1","SW1",50,48,[P("Gi0/1","access",10),P("Gi0/2","access",1),P("Gi0/3","access",10),P("Gi0/24","access",1)],{vlanNames:{"10":"STAFF","20":"PRINTERS"}}),
+      H("pca","pc","Staff-1",8,94,{ip:"192.168.10.10", mask:M24, gw:"192.168.10.1"}, false),
+      H("pcb","pc","Staff-2",50,94,{ip:"192.168.10.11", mask:M24, gw:"192.168.10.1"}, false),
+      H("prn","printer","Printer-1",92,94,{ip:"192.168.20.50", mask:M24, gw:"192.168.20.1"}, false)],
+    links:[["r1","Gi0/0","sw1","Gi0/24"],["pca","NIC","sw1","Gi0/1"],["prn","NIC","sw1","Gi0/2"],["pcb","NIC","sw1","Gi0/3"]],
+    goals:[{type:"ping", from:"pca", to:"192.168.10.1", label:"Staff-1 can reach its gateway, 192.168.10.1"},{type:"ping", from:"pca", to:"192.168.20.50", label:"Staff-1 can reach Printer-1"},{type:"ping", from:"pcb", to:"192.168.20.50", label:"Staff-2 can reach Printer-1"}],
+    solution:[{dev:"r1", iface:"Gi0/0.10", set:{ip:"192.168.10.1", mask:M24}},{dev:"r1", iface:"Gi0/0.20", set:{ip:"192.168.20.1", mask:M24}},{dev:"sw1", port:"Gi0/24", set:{mode:"trunk"}},{dev:"sw1", port:"Gi0/2", set:{vlan:20}}],
+    explanation:"Each 802.1Q subinterface needs the gateway address for its VLAN. The switch port facing R1 must be a trunk so both VLANs arrive tagged, and the printer's access port belongs in VLAN 20."})]},
+
+{ id:"s-dhcp", title:"Sim: contractors get 169.254 addresses", domain:"operations", difficulty:3, objective:"3.4", objectives:["3.4","5.3"],
+  scenario:"Contractor laptops in VLAN 30 end up with 169.254.x.x addresses and can't reach anything. Devices in VLAN 10 work. DHCP-01 is supposed to serve both subnets.",
+  tasks:[NET(null,{
+    devices:[RT("r1","R1",50,4,[IF("Gi0/0.10","192.168.10.1",M24,{vlan:10}),IF("Gi0/0.30","192.168.30.1",M24,{vlan:30})]),
+      SW("sw1","SW1",50,48,[P("Gi0/1","access",10),P("Gi0/2","access",10),P("Gi0/3","access",30),P("Gi0/24","trunk",1,{allowed:"10,30"})],{vlanNames:{"10":"SERVERS","30":"CONTRACTORS"}}),
+      H("srv","server","DHCP-01",8,40,{ip:"192.168.10.5", mask:M24, gw:"192.168.10.1", dns:"192.168.10.5", dnsRecords:{"files.corp.local":"192.168.10.5","dhcp-01.corp.local":"192.168.10.5"},
+        dhcp:[{network:"192.168.10.0/24", start:"192.168.10.100", gw:"192.168.10.1", dns:"192.168.10.5"},{network:"192.168.30.0/24", start:"192.168.30.100", gw:"192.168.30.254", dns:"192.168.10.5"}]}),
+      H("pc","pc","PC-10",40,94,{mode:"dhcp"}, false), H("lap","laptop","Laptop-30",85,94,{mode:"dhcp"}, false)],
+    links:[["r1","Gi0/0","sw1","Gi0/24"],["srv","NIC","sw1","Gi0/1"],["pc","NIC","sw1","Gi0/2"],["lap","NIC","sw1","Gi0/3"]],
+    goals:[{type:"dhcp", host:"lap", label:"Laptop-30 gets a DHCP lease"},{type:"ping", from:"lap", to:"files.corp.local", label:"Laptop-30 can reach files.corp.local"},{type:"ping", from:"pc", to:"files.corp.local", label:"PC-10 can still reach files.corp.local"}],
+    solution:[{dev:"r1", iface:"Gi0/0.30", set:{helper:"192.168.10.5"}},{dev:"srv", pool:1, set:{gw:"192.168.30.1"}}],
+    explanation:"DHCP discovers are broadcasts and never leave VLAN 30 unless R1 relays them with an ip helper-address pointing at DHCP-01. The VLAN 30 scope also handed out the wrong router option (.254), so leases worked but nothing off-subnet did."})]},
+
+{ id:"s-trunk", title:"Sim: stretch VLANs across two switches", domain:"implementation", difficulty:2, objective:"2.2", objectives:["2.2"],
+  scenario:"Engineering (VLAN 20) and Users (VLAN 10) span two switches joined by a trunk. Eng-B can't reach ENG-FS, and User-C can't reach User-A. There's no router, and the VLANs must stay separate.",
+  tasks:[NET(null,{
+    devices:[SW("sw1","SW1",25,40,[P("Gi0/1","access",20),P("Gi0/2","access",10),P("Gi0/24","trunk",1,{allowed:"10"})],{vlanNames:{"10":"USERS","20":"ENGINEERING"}}),
+      SW("sw2","SW2",75,40,[P("Gi0/1","access",20),P("Gi0/2","access",1),P("Gi0/24","trunk",1,{allowed:"10,20"})],{vlanNames:{"10":"USERS","20":"ENGINEERING"}}),
+      H("fs","server","ENG-FS",5,94,{ip:"172.16.20.10", mask:M24}, false), H("pca","pc","User-A",38,94,{ip:"172.16.10.21", mask:M24}, false),
+      H("pcb","pc","Eng-B",62,94,{ip:"172.16.20.22", mask:M24}, false), H("pcc","pc","User-C",95,94,{ip:"172.16.10.23", mask:M24}, false)],
+    links:[["sw1","Gi0/24","sw2","Gi0/24"],["fs","NIC","sw1","Gi0/1"],["pca","NIC","sw1","Gi0/2"],["pcb","NIC","sw2","Gi0/1"],["pcc","NIC","sw2","Gi0/2"]],
+    goals:[{type:"ping", from:"pcb", to:"172.16.20.10", label:"Eng-B can reach ENG-FS"},{type:"ping", from:"pcc", to:"172.16.10.21", label:"User-C can reach User-A"},{type:"ping", from:"pca", to:"172.16.20.10", expect:false, label:"User-A still can't reach ENG-FS"}],
+    solution:[{dev:"sw1", port:"Gi0/24", set:{allowed:"10,20"}},{dev:"sw2", port:"Gi0/2", set:{vlan:10}}],
+    explanation:"A trunk carries only the VLANs on its allowed list, and both ends must allow a VLAN. User-C's port was left in the default VLAN 1. show interfaces trunk on both switches reveals the mismatch."})]},
+
+{ id:"s-slash27", title:"Sim: address the new /27", domain:"concepts", difficulty:2, objective:"1.7", objectives:["1.7"],
+  scenario:"A new office was assigned 10.20.30.0/27. R1 uses the first usable address as the gateway. Give both desks any unused valid host address, give App-01 the last usable address, and make sure everything reaches the internet.",
+  tasks:[NET(null,{
+    devices:[ISP(92,4,"203.0.113.5"), RT("r1","R1",92,44,[IF("Gi0/0","203.0.113.6",M30),IF("Gi0/1","10.20.30.1","255.255.255.224")],{editable:false, defaultRoute:"203.0.113.5"}),
+      SW("sw1","SW1",50,52,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1),P("Gi0/24","access",1)],{editable:false}),
+      H("pc1","pc","Desk-1",8,94,{}), H("pc2","pc","Desk-2",45,94,{}), H("app","server","App-01",82,94,{})],
+    links:[["isp","WAN","r1","Gi0/0"],["r1","Gi0/1","sw1","Gi0/24"],["pc1","NIC","sw1","Gi0/1"],["pc2","NIC","sw1","Gi0/2"],["app","NIC","sw1","Gi0/3"]],
+    goals:[{type:"config", dev:"app", field:"ip", equals:["10.20.30.30"], label:"App-01 uses the last usable address"},{type:"config", dev:"pc1", field:"mask", equals:["255.255.255.224"], label:"Desk-1 uses the correct subnet mask"},{type:"config", dev:"pc2", field:"mask", equals:["255.255.255.224"], label:"Desk-2 uses the correct subnet mask"},
+      {type:"ping", from:"pc1", to:"8.8.8.8", label:"Desk-1 can reach 8.8.8.8"},{type:"ping", from:"pc2", to:"8.8.8.8", label:"Desk-2 can reach 8.8.8.8"},{type:"ping", from:"app", to:"8.8.8.8", label:"App-01 can reach 8.8.8.8"}],
+    solution:[{dev:"pc1", set:{ip:"10.20.30.10", mask:"255.255.255.224", gw:"10.20.30.1"}},{dev:"pc2", set:{ip:"10.20.30.11", mask:"255.255.255.224", gw:"10.20.30.1"}},{dev:"app", set:{ip:"10.20.30.30", mask:"255.255.255.224", gw:"10.20.30.1"}}],
+    explanation:"A /27 is 255.255.255.224, blocks of 32: .0 is the network and .31 the broadcast, so hosts are .1 to .30. Any unique .2 to .29 works for the desks, App-01 takes .30, and everyone uses .1 as the gateway."})]},
+
+{ id:"s-static", title:"Sim: static routes between two sites", domain:"implementation", difficulty:2, objective:"2.1", objectives:["2.1","5.3"],
+  scenario:"HQ and the branch are joined by a point-to-point WAN link (10.0.12.0/30). Users at each site can reach their own router but not the other site. Fix the routing on HQ-R1 and BR-R2.",
+  tasks:[NET(null,{
+    devices:[RT("r1","HQ-R1",25,28,[IF("Gi0/0","10.0.12.1",M30),IF("Gi0/1","10.1.0.1",M24)],{routes:[{net:"10.2.0.0/24", via:"10.0.12.6"}]}),
+      RT("r2","BR-R2",75,28,[IF("Gi0/0","10.0.12.2",M30),IF("Gi0/1","10.2.0.1",M24)]),
+      SW("sw1","HQ-SW",25,62,[P("Gi0/1","access",1),P("Gi0/24","access",1)],{editable:false}), SW("sw2","BR-SW",75,62,[P("Gi0/1","access",1),P("Gi0/24","access",1)],{editable:false}),
+      H("pc1","pc","HQ-PC",25,95,{ip:"10.1.0.10", mask:M24, gw:"10.1.0.1"}, false), H("pc2","pc","BR-PC",75,95,{ip:"10.2.0.10", mask:M24, gw:"10.2.0.1"}, false)],
+    links:[["r1","Gi0/0","r2","Gi0/0"],["r1","Gi0/1","sw1","Gi0/24"],["r2","Gi0/1","sw2","Gi0/24"],["pc1","NIC","sw1","Gi0/1"],["pc2","NIC","sw2","Gi0/1"]],
+    goals:[{type:"ping", from:"pc1", to:"10.2.0.10", label:"HQ-PC can reach BR-PC"},{type:"ping", from:"pc2", to:"10.1.0.10", label:"BR-PC can reach HQ-PC"},{type:"state", check:"route", dev:"r1", to:"10.2.0.10", via:"10.0.12.2", label:"HQ-R1 routes 10.2.0.0/24 to BR-R2"}],
+    solution:[{dev:"r1", routes:[{net:"10.2.0.0/24", via:"10.0.12.2"}]},{dev:"r2", routes:[{net:"10.1.0.0/24", via:"10.0.12.1"}]}],
+    explanation:"A static route's next hop must be an address on a directly connected network; 10.0.12.6 isn't in 10.0.12.0/30 (hosts .1 and .2), so HQ-R1 ignored the route. BR-R2 had no route back at all, and both directions are needed."})]},
+
+{ id:"s-ospf", title:"Sim: OSPF and route selection", domain:"implementation", difficulty:3, objective:"2.1", objectives:["2.1","5.3"],
+  scenario:"Three routers run OSPF. The direct R1 to R3 link is a slow backup (OSPF cost 10). Traffic between the R1 and R3 LANs should use the fast path through R2, and an old static route on R1 should stay only as a backup. Right now R3's LAN is unreachable over the fast path.",
+  tasks:[NET(null,{
+    devices:[RT("r1","R1",15,30,[IF("Gi0/0","10.0.12.1",M30),IF("Gi0/2","10.0.13.1",M30,{ospfCost:10}),IF("Gi0/1","10.1.0.1",M24)],{ospf:{enabled:true, area:0}, routes:[{net:"10.3.0.0/24", via:"10.0.13.2"}]}),
+      RT("r2","R2",50,6,[IF("Gi0/0","10.0.12.2",M30),IF("Gi0/1","10.0.23.1",M30)],{ospf:{enabled:true, area:0, passive:["Gi0/1"]}}),
+      RT("r3","R3",85,30,[IF("Gi0/0","10.0.23.2",M30),IF("Gi0/2","10.0.13.2",M30,{ospfCost:10}),IF("Gi0/1","10.3.0.1",M24)],{ospf:{enabled:true, area:1}}),
+      H("pc1","pc","LAN-1 PC",15,94,{ip:"10.1.0.10", mask:M24, gw:"10.1.0.1"}, false), H("pc3","pc","LAN-3 PC",85,94,{ip:"10.3.0.10", mask:M24, gw:"10.3.0.1"}, false)],
+    links:[["r1","Gi0/0","r2","Gi0/0"],["r2","Gi0/1","r3","Gi0/0"],["r1","Gi0/2","r3","Gi0/2",{cable:"cat5"}],["pc1","NIC","r1","Gi0/1"],["pc3","NIC","r3","Gi0/1"]],
+    goals:[{type:"ping", from:"pc1", to:"10.3.0.10", label:"LAN-1 PC can reach LAN-3 PC"},{type:"state", check:"route", dev:"r1", to:"10.3.0.10", via:"10.0.12.2", rtype:"O", label:"R1 reaches 10.3.0.0/24 through R2 using OSPF"},{type:"state", check:"route", dev:"r3", to:"10.1.0.10", via:"10.0.23.1", rtype:"O", label:"R3 reaches 10.1.0.0/24 through R2 using OSPF"}],
+    solution:[{dev:"r3", set:{ospf:{enabled:true, area:0}}},{dev:"r2", set:{ospf:{enabled:true, area:0, passive:[]}}},{dev:"r1", routes:[{net:"10.3.0.0/24", via:"10.0.13.2", ad:200}]}],
+    explanation:"Neighbors must agree on the area, and a passive interface never forms adjacencies. Even with OSPF working, R1's static route (administrative distance 1) beats OSPF (110) for the same /24, so it's turned into a floating static with AD 200."})]},
+
+{ id:"s-nat", title:"Sim: nobody can reach the internet", domain:"implementation", difficulty:2, objective:"2.1", objectives:["2.1","5.3"],
+  scenario:"The office router was replaced and now nobody can reach the internet. The ISP assigned 203.0.113.8/29 with their gateway at .9; the router uses .10. Internal hosts use private addresses and must share the router's public address.",
+  tasks:[NET(null,{
+    devices:[ISP(92,4,"203.0.113.9"),
+      RT("r1","Edge",92,44,[IF("Gi0/0","203.0.113.10","255.255.255.248",{nat:"outside"}),IF("Gi0/1","192.168.1.1",M24)],{defaultRoute:"203.0.113.1"}),
+      SW("sw1","SW1",50,52,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/24","access",1)],{editable:false}),
+      H("pc1","pc","Office-1",15,94,{ip:"192.168.1.20", mask:M24, gw:"192.168.1.1", dns:"8.8.8.8"}, false), H("pc2","laptop","Office-2",60,94,{ip:"192.168.1.21", mask:M24, gw:"192.168.1.1", dns:"8.8.8.8"}, false)],
+    links:[["isp","WAN","r1","Gi0/0"],["r1","Gi0/1","sw1","Gi0/24"],["pc1","NIC","sw1","Gi0/1"],["pc2","NIC","sw1","Gi0/2"]],
+    goals:[{type:"ping", from:"pc1", to:"8.8.8.8", label:"Office-1 can reach 8.8.8.8"},{type:"ping", from:"pc1", to:"comptia.org", label:"Office-1 can reach comptia.org by name"},{type:"conn", from:"pc2", to:"comptia.org", proto:"tcp", port:443, label:"Office-2 can open https://comptia.org"}],
+    solution:[{dev:"r1", set:{defaultRoute:"203.0.113.9"}},{dev:"r1", iface:"Gi0/1", set:{nat:"inside"}}],
+    explanation:"The default route pointed at .1, which isn't on the router's 203.0.113.8/29 network (usable .9 to .14). Port address translation (PAT, NAT overload) only translates traffic arriving on an inside interface and leaving an outside one, so Gi0/1 must be marked inside."})]},
+
+{ id:"s-acl", title:"Sim: keep guests out of the server VLAN", domain:"security", difficulty:3, objective:"4.3", objectives:["4.3","5.3"],
+  scenario:"Guests on 10.20.0.0/24 must reach the internet but must not reach staff (10.10.0.0/24) or servers (10.30.0.0/24). Staff need HTTPS to App-01. An access list GUEST_IN is applied inbound on the guest interface, but guests can currently reach everything.",
+  tasks:[NET(null,{
+    devices:[ISP(92,4,"203.0.113.1"),
+      RT("r1","Core-R1",55,36,[IF("Gi0/0","10.10.0.1",M24),IF("Gi0/1","10.20.0.1",M24,{acl:"GUEST_IN"}),IF("Gi0/2","10.30.0.1",M24),IF("Gi0/3","203.0.113.2",M30)],{defaultRoute:"203.0.113.1", acls:{GUEST_IN:[{action:"permit", proto:"ip", src:"any", dst:"any"},{action:"deny", proto:"ip", src:"10.20.0.0/24", dst:"10.30.0.0/24"}]}}),
+      H("staff","pc","Staff-PC",10,94,{ip:"10.10.0.10", mask:M24, gw:"10.10.0.1", dns:"8.8.8.8"}, false),
+      H("guest","laptop","Guest-Laptop",50,94,{ip:"10.20.0.50", mask:M24, gw:"10.20.0.1", dns:"8.8.8.8"}, false),
+      H("app","server","App-01",90,94,{ip:"10.30.0.10", mask:M24, gw:"10.30.0.1", services:["tcp/443","tcp/22"]}, false)],
+    links:[["isp","WAN","r1","Gi0/3"],["staff","NIC","r1","Gi0/0"],["guest","NIC","r1","Gi0/1"],["app","NIC","r1","Gi0/2"]],
+    goals:[{type:"conn", from:"staff", to:"10.30.0.10", proto:"tcp", port:443, label:"Staff-PC can reach App-01 on HTTPS"},{type:"ping", from:"guest", to:"8.8.8.8", label:"Guests can reach the internet"},
+      {type:"conn", from:"guest", to:"10.30.0.10", proto:"tcp", port:443, expect:false, label:"Guests can't reach App-01"},{type:"ping", from:"guest", to:"10.10.0.10", expect:false, label:"Guests can't reach the staff network"}],
+    solution:[{dev:"r1", acl:"GUEST_IN", rules:[{action:"deny", proto:"ip", src:"10.20.0.0/24", dst:"10.10.0.0/24"},{action:"deny", proto:"ip", src:"10.20.0.0/24", dst:"10.30.0.0/24"},{action:"permit", proto:"ip", src:"any", dst:"any"}]}],
+    explanation:"ACLs are read top-down and stop at the first match. A permit any at the top matches everything, so the deny under it never runs. Put the specific denies first and the broad permit last; without that final permit, the implicit deny would also block the internet."})]},
+
+{ id:"s-fhrp", title:"Sim: the primary router died", domain:"implementation", difficulty:2, objective:"2.1", objectives:["2.1","3.3"],
+  scenario:"R1 and R2 share a virtual gateway (FHRP) on both subnets so either can fail. R1 just lost power. One user is down and the other is too, even though R2 is fine. Fix it so the network survives R1 being offline.",
+  tasks:[NET(null,{
+    devices:[RT("r1","R1",30,40,[IF("Gi0/0","10.99.0.2",M24,{vip:"10.99.0.1", vipPriority:110}),IF("Gi0/1","10.5.0.2",M24,{vip:"10.5.0.1", vipPriority:110})],{power:false, editable:false}),
+      RT("r2","R2",70,40,[IF("Gi0/0","10.99.0.3",M24,{vip:"10.99.0.1"}),IF("Gi0/1","10.5.0.3",M24,{vip:"10.5.0.11"})]),
+      SW("swc","SW-Core",50,6,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1)],{editable:false}),
+      SW("swa","SW-Access",50,68,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1),P("Gi0/4","access",1)],{editable:false}),
+      H("fs","server","Files",88,6,{ip:"10.99.0.20", mask:M24, gw:"10.99.0.1"}, false),
+      H("pc1","pc","User-1",25,95,{ip:"10.5.0.21", mask:M24, gw:"10.5.0.2"}), H("pc2","pc","User-2",75,95,{ip:"10.5.0.22", mask:M24, gw:"10.5.0.1"})],
+    links:[["r1","Gi0/0","swc","Gi0/1"],["r2","Gi0/0","swc","Gi0/2"],["fs","NIC","swc","Gi0/3"],["r1","Gi0/1","swa","Gi0/1"],["r2","Gi0/1","swa","Gi0/2"],["pc1","NIC","swa","Gi0/3"],["pc2","NIC","swa","Gi0/4"]],
+    goals:[{type:"ping", from:"pc1", to:"10.99.0.20", label:"User-1 can reach Files"},{type:"ping", from:"pc2", to:"10.99.0.20", label:"User-2 can reach Files"},{type:"config", dev:"pc1", field:"gw", equals:["10.5.0.1"], label:"User-1 uses the virtual gateway"}],
+    solution:[{dev:"r2", iface:"Gi0/1", set:{vip:"10.5.0.1"}},{dev:"pc1", set:{gw:"10.5.0.1"}}],
+    explanation:"Hosts must point at the virtual IP, not a router's real address, or they lose their gateway when that router fails. Both routers in the group also need the same virtual IP; R2 had a typo, so it never took over 10.5.0.1."})]},
+
+{ id:"s-stp", title:"Sim: the network melted down", domain:"troubleshooting", difficulty:3, objective:"5.3", objectives:["5.3","2.2"],
+  scenario:"Right after Acc-3 was installed, the whole network stopped responding and switch CPUs spiked. The three switches are cabled in a triangle for redundancy. Core-1 is supposed to be the root bridge.",
+  tasks:[NET(null,{
+    devices:[SW("core","Core-1",50,8,[P("Gi1/0/1","trunk",1),P("Gi1/0/2","trunk",1),P("Gi1/0/10","access",1)],{mac:"00:1a:2b:00:00:50"}),
+      SW("dist","Dist-2",18,50,[P("Gi1/0/1","trunk",1),P("Gi1/0/2","trunk",1),P("Gi1/0/10","access",1)],{mac:"00:1a:2b:00:00:40"}),
+      SW("acc","Acc-3",82,50,[P("Gi1/0/1","trunk",1),P("Gi1/0/2","trunk",1),P("Gi1/0/10","access",1)],{mac:"00:1a:2b:00:00:10", stp:{enabled:false, priority:32768}}),
+      H("srv","server","Server",88,8,{ip:"10.0.0.5", mask:M24}, false), H("pc1","pc","PC-Dist",18,94,{ip:"10.0.0.21", mask:M24}, false), H("pc2","pc","PC-Acc",82,94,{ip:"10.0.0.22", mask:M24}, false)],
+    links:[["core","Gi1/0/1","dist","Gi1/0/1"],["core","Gi1/0/2","acc","Gi1/0/1"],["dist","Gi1/0/2","acc","Gi1/0/2"],["srv","NIC","core","Gi1/0/10"],["pc1","NIC","dist","Gi1/0/10"],["pc2","NIC","acc","Gi1/0/10"]],
+    goals:[{type:"state", check:"noStorm", label:"No switching loop (no broadcast storm)"},{type:"state", check:"root", dev:"core", label:"Core-1 is the root bridge"},{type:"ping", from:"pc1", to:"10.0.0.5", label:"PC-Dist can reach Server"},{type:"ping", from:"pc2", to:"10.0.0.5", label:"PC-Acc can reach Server"}],
+    solution:[{dev:"acc", set:{stp:{enabled:true, priority:32768}}},{dev:"core", set:{stp:{enabled:true, priority:4096}}}],
+    explanation:"With spanning tree disabled on Acc-3, the triangle forms a loop and broadcasts circle forever. Once STP is on, the lowest bridge ID wins the root election; with default priorities that's the lowest MAC (Acc-3). Set Core-1's priority lower (4096) so it's root."})]},
+
+{ id:"s-lacp", title:"Sim: the uplink bundle won't come up", domain:"implementation", difficulty:2, objective:"2.2", objectives:["2.2","5.2"],
+  scenario:"Two 1 Gbps links between SW1 and SW2 should form one 2 Gbps port-channel using LACP. Since the change window, users on SW2 can't reach the server on SW1.",
+  tasks:[NET(null,{
+    devices:[SW("sw1","SW1",25,40,[P("Gi0/1","access",1),P("Gi0/23","trunk",1,{channel:1, lacp:"active"}),P("Gi0/24","trunk",1,{channel:1, lacp:"active"})]),
+      SW("sw2","SW2",75,40,[P("Gi0/1","access",1),P("Gi0/23","trunk",1,{channel:1, lacp:"on"}),P("Gi0/24","trunk",1,{channel:1, lacp:"on"})]),
+      H("srv","server","Server",25,94,{ip:"10.8.0.5", mask:M24}, false), H("pc","pc","User-PC",75,94,{ip:"10.8.0.30", mask:M24}, false)],
+    links:[["sw1","Gi0/23","sw2","Gi0/23"],["sw1","Gi0/24","sw2","Gi0/24"],["srv","NIC","sw1","Gi0/1"],["pc","NIC","sw2","Gi0/1"]],
+    goals:[{type:"ping", from:"pc", to:"10.8.0.5", label:"User-PC can reach Server"},{type:"state", check:"bundle", dev:"sw1", members:2, label:"Both links are bundled in Port-channel 1"}],
+    solution:[{dev:"sw2", port:"Gi0/23", set:{lacp:"passive"}},{dev:"sw2", port:"Gi0/24", set:{lacp:"passive"}}],
+    explanation:"Mode on forces a static channel with no LACP, while active sends LACP. An LACP port that hears nothing back is suspended, so both links went down. Active with active or passive forms the bundle; passive with passive never does."})]},
+
+{ id:"s-phys", title:"Sim: slow and flaky in the IDF", domain:"troubleshooting", difficulty:3, objective:"5.2", objectives:["5.2","1.5"],
+  scenario:"A new IDF switch connects to the MDF over 400 m of single-mode fiber. Nobody in the IDF can reach the file server. Earlier, before the uplink was moved, PC-1 complained of slowness and PC-2 could barely get 10 Mbps. Fix the physical layer so both PCs get at least 500 Mbps to the server.",
+  tasks:[NET(null,{
+    devices:[SW("mdf","SW-MDF",28,30,[P("Gi1/0/1","access",1),P("Te1/1","access",1,{sfp:"10GBASE-LR"})]),
+      SW("idf","SW-IDF",72,30,[P("Gi1/0/1","access",1,{speed:"100", duplex:"full"}),P("Gi1/0/2","access",1),P("Te1/1","access",1,{sfp:"10GBASE-SR"})]),
+      H("srv","server","File-Server",28,90,{ip:"10.50.0.5", mask:M24}, false), H("pc1","pc","PC-1",60,94,{ip:"10.50.0.21", mask:M24}, false), H("pc2","pc","PC-2",90,94,{ip:"10.50.0.22", mask:M24}, false)],
+    links:[["mdf","Te1/1","idf","Te1/1",{cable:"smf", length:400}],["srv","NIC","mdf","Gi1/0/1"],["pc1","NIC","idf","Gi1/0/1"],["pc2","NIC","idf","Gi1/0/2",{cable:"cat3", length:40}]],
+    goals:[{type:"state", check:"portUp", dev:"idf", port:"Te1/1", label:"The fiber uplink is up"},{type:"perf", from:"pc1", to:"10.50.0.5", minMbps:500, maxLoss:0.01, label:"PC-1 gets 500+ Mbps with no loss"},{type:"perf", from:"pc2", to:"10.50.0.5", minMbps:500, maxLoss:0.01, label:"PC-2 gets 500+ Mbps with no loss"}],
+    solution:[{dev:"idf", port:"Te1/1", set:{sfp:"10GBASE-LR"}},{dev:"idf", port:"Gi1/0/1", set:{speed:"auto", duplex:"auto"}},{link:["pc2","NIC"], set:{cable:"cat6"}}],
+    explanation:"10GBASE-SR optics are for multimode fiber; single-mode needs LR, and both ends must match. Gi1/0/1 was hard-set to 100/full while the PC autonegotiated, so the PC fell back to half duplex (a duplex mismatch: late collisions on one side, CRC errors and runts on the other). Cat 3 cable can't carry more than 10 Mbps."})]},
+
+{ id:"s-poe", title:"Sim: phones and the AP won't power on", domain:"troubleshooting", difficulty:2, objective:"5.2", objectives:["5.2","2.4"],
+  scenario:"Floor 2 got four new IP phones and a Wi-Fi 6 access point on an old switch. Only some phones boot and the AP never comes up. The AP needs 802.3at (PoE+). Choose the switch settings that represent the right replacement switch, or another valid fix.",
+  tasks:[NET(null,{
+    devices:[SW("sw","SW-Floor2",50,30,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1),P("Gi0/4","access",1),P("Gi0/5","access",1),P("Gi0/24","access",1)],{poeStd:"af", poeBudget:45}),
+      H("cm","server","Call-Mgr",92,8,{ip:"10.30.0.5", mask:M24}, false),
+      H("ph1","phone","Phone-1",5,94,{ip:"10.30.0.41", mask:M24, poe:{std:"af", watts:12}}, false), H("ph2","phone","Phone-2",25,94,{ip:"10.30.0.42", mask:M24, poe:{std:"af", watts:12}}, false),
+      H("ph3","phone","Phone-3",45,94,{ip:"10.30.0.43", mask:M24, poe:{std:"af", watts:12}}, false), H("ph4","phone","Phone-4",65,94,{ip:"10.30.0.44", mask:M24, poe:{std:"af", watts:12}}, false),
+      H("ap","ap","AP-2F",88,94,{ip:"10.30.0.60", mask:M24, poe:{std:"at", watts:25}})],
+    links:[["cm","NIC","sw","Gi0/24"],["ph1","NIC","sw","Gi0/1"],["ph2","NIC","sw","Gi0/2"],["ph3","NIC","sw","Gi0/3"],["ph4","NIC","sw","Gi0/4"],["ap","NIC","sw","Gi0/5"]],
+    goals:[{type:"state", check:"powered", dev:"ph4", label:"Phone-4 is powered"},{type:"state", check:"powered", dev:"ap", label:"AP-2F is powered"},{type:"ping", from:"ap", to:"10.30.0.5", label:"AP-2F can reach Call-Mgr"},{type:"ping", from:"ph4", to:"10.30.0.5", label:"Phone-4 can reach Call-Mgr"}],
+    solution:[{dev:"sw", set:{poeStd:"at", poeBudget:370}}],
+    explanation:"The switch supports only 802.3af (15.4 W per port) with a 45 W budget. Four 12 W phones need 48 W, so the last one is denied, and the AP needs PoE+ (802.3at, 30 W). A PoE+ switch with a larger budget fixes both; a PoE+ injector for the AP plus a bigger budget would also work."})]},
+
+{ id:"s-portsec", title:"Sim: harden the third-floor switch", domain:"security", difficulty:2, objective:"4.3", objectives:["4.3","5.2","4.2"],
+  scenario:"The conference-room port (Gi0/2) went err-disabled after someone connected a small switch for two laptops; policy allows two devices there. A device on Gi0/3 is flooding the switch with fake MAC addresses. Unused ports Gi0/4 to Gi0/6 are still enabled. Fix all three.",
+  tasks:[NET(null,{
+    devices:[SW("sw","SW-3F",50,30,[P("Gi0/1","access",1),P("Gi0/2","access",1,{portSecurity:{enabled:true, max:1, violation:"shutdown"}, errDisabled:true}),P("Gi0/3","access",1),P("Gi0/4","access",1),P("Gi0/5","access",1),P("Gi0/6","access",1),P("Gi0/24","access",1)]),
+      SW("mini","Mini-SW",62,62,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1)],{editable:false}),
+      H("srv","server","Server",92,8,{ip:"10.40.0.5", mask:M24}, false), H("desk","pc","Desk-1",8,94,{ip:"10.40.0.21", mask:M24}, false),
+      H("lap1","laptop","Conf-Laptop-1",50,95,{ip:"10.40.0.31", mask:M24}, false), H("lap2","laptop","Conf-Laptop-2",74,95,{ip:"10.40.0.32", mask:M24}, false),
+      H("bad","pc","Unknown-PC",28,94,{ip:"10.40.0.66", mask:M24, macFlood:true}, false)],
+    links:[["srv","NIC","sw","Gi0/24"],["desk","NIC","sw","Gi0/1"],["mini","Gi0/1","sw","Gi0/2"],["lap1","NIC","mini","Gi0/2"],["lap2","NIC","mini","Gi0/3"],["bad","NIC","sw","Gi0/3"]],
+    goals:[{type:"ping", from:"lap1", to:"10.40.0.5", label:"Conf-Laptop-1 can reach Server"},{type:"ping", from:"lap2", to:"10.40.0.5", label:"Conf-Laptop-2 can reach Server"},{type:"state", check:"macSafe", dev:"sw", label:"Nothing is flooding SW-3F's MAC table"},{type:"state", check:"unusedDown", dev:"sw", label:"Unused ports are shut down"}],
+    solution:[{dev:"sw", port:"Gi0/2", set:{portSecurity:{enabled:true, max:2, violation:"shutdown"}, shutdown:false, errDisabled:false}},{dev:"sw", port:"Gi0/3", set:{portSecurity:{enabled:true, max:1, violation:"shutdown"}}},{dev:"sw", port:"Gi0/4", set:{shutdown:true}},{dev:"sw", port:"Gi0/5", set:{shutdown:true}},{dev:"sw", port:"Gi0/6", set:{shutdown:true}}],
+    explanation:"Port security counts MAC addresses per port. Raising Gi0/2's maximum to 2 and bouncing it (shutdown, then no shutdown) recovers it from err-disabled. Port security on Gi0/3 shuts the flooding port, and disabling unused ports is basic device hardening."})]},
+
+{ id:"s-rogue", title:"Sim: users get the wrong gateway", domain:"security", difficulty:3, objective:"4.2", objectives:["4.2","4.3","3.4"],
+  scenario:"Some users suddenly get addresses like 10.40.0.200 with a gateway of 10.40.0.66 and can't browse. The legitimate DHCP server is DHCP-01 (10.40.0.5) on Gi0/2. Stop the rogue DHCP server from handing out leases without breaking legitimate DHCP.",
+  tasks:[NET(null,{
+    devices:[ISP(92,4,"203.0.113.1"), RT("r1","R1",92,40,[IF("Gi0/0","203.0.113.2",M30),IF("Gi0/1","10.40.0.1",M24)],{editable:false, defaultRoute:"203.0.113.1"}),
+      SW("sw","SW1",50,40,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1),P("Gi0/4","access",1),P("Gi0/5","access",1)]),
+      H("dhcp","server","DHCP-01",8,30,{ip:"10.40.0.5", mask:M24, gw:"10.40.0.1", dhcp:[{network:"10.40.0.0/24", start:"10.40.0.100", gw:"10.40.0.1", dns:"8.8.8.8"}]}, false),
+      H("pc1","pc","User-1",20,94,{mode:"dhcp"}, false), H("pc2","pc","User-2",50,94,{mode:"dhcp"}, false),
+      H("rogue","server","Lab-Pi",80,94,{ip:"10.40.0.66", mask:M24, rogue:true, dhcp:[{network:"10.40.0.0/24", start:"10.40.0.200", gw:"10.40.0.66", dns:"10.40.0.66"}]}, false)],
+    links:[["isp","WAN","r1","Gi0/0"],["r1","Gi0/1","sw","Gi0/1"],["dhcp","NIC","sw","Gi0/2"],["pc1","NIC","sw","Gi0/3"],["pc2","NIC","sw","Gi0/4"],["rogue","NIC","sw","Gi0/5"]],
+    goals:[{type:"dhcp", host:"pc1", server:"dhcp", label:"User-1 gets its lease from DHCP-01"},{type:"dhcp", host:"pc2", server:"dhcp", label:"User-2 gets its lease from DHCP-01"},{type:"ping", from:"pc1", to:"8.8.8.8", label:"User-1 can reach the internet"}],
+    solution:[{dev:"sw", set:{dhcpSnooping:true}},{dev:"sw", port:"Gi0/2", set:{trusted:true}}],
+    explanation:"DHCP snooping drops server messages (offers) arriving on untrusted ports, so only the port toward the real server is trusted. Turning snooping on without trusting Gi0/2 would block the legitimate server too. Shutting the rogue's port also works, but snooping prevents the next one."})]},
+
+{ id:"s-arp", title:"Sim: an on-path attacker at the kiosk", domain:"security", difficulty:3, objective:"4.2", objectives:["4.2","4.3"],
+  scenario:"Users get their addresses from DHCP-01. A kiosk PC on Gi0/5 is sending ARP replies claiming to be the gateway (10.60.0.1), so traffic flows through it. Enable Dynamic ARP Inspection so spoofed ARP is dropped, without cutting users off from the gateway.",
+  tasks:[NET(null,{
+    devices:[ISP(92,4,"203.0.113.1"), RT("r1","R1",92,40,[IF("Gi0/0","203.0.113.2",M30),IF("Gi0/1","10.60.0.1",M24)],{editable:false, defaultRoute:"203.0.113.1"}),
+      SW("sw","SW1",50,40,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1),P("Gi0/4","access",1),P("Gi0/5","access",1)]),
+      H("dhcp","server","DHCP-01",8,30,{ip:"10.60.0.5", mask:M24, gw:"10.60.0.1", dhcp:[{network:"10.60.0.0/24", start:"10.60.0.100", gw:"10.60.0.1", dns:"8.8.8.8"}]}, false),
+      H("pc1","pc","User-1",20,94,{mode:"dhcp"}, false), H("pc2","pc","User-2",50,94,{mode:"dhcp"}, false),
+      H("kiosk","pc","Kiosk-7",80,94,{ip:"10.60.0.77", mask:M24, gw:"10.60.0.1", arpSpoof:"10.60.0.1"}, false)],
+    links:[["isp","WAN","r1","Gi0/0"],["r1","Gi0/1","sw","Gi0/1"],["dhcp","NIC","sw","Gi0/2"],["pc1","NIC","sw","Gi0/3"],["pc2","NIC","sw","Gi0/4"],["kiosk","NIC","sw","Gi0/5"]],
+    goals:[{type:"state", check:"arpSafe", host:"pc1", dev:"sw", label:"User-1's ARP entry for the gateway is genuine"},{type:"ping", from:"pc1", to:"8.8.8.8", secure:true, label:"User-1 reaches the internet without going through the attacker"},{type:"dhcp", host:"pc2", server:"dhcp", label:"User-2 still gets DHCP"},{type:"state", check:"portUp", dev:"sw", port:"Gi0/5", label:"Kiosk-7's port stays up (it's needed for the kiosk app)"}],
+    solution:[{dev:"sw", set:{dhcpSnooping:true, dai:true}},{dev:"sw", port:"Gi0/1", set:{trusted:true}},{dev:"sw", port:"Gi0/2", set:{trusted:true}}],
+    explanation:"DAI checks ARP on untrusted ports against the DHCP snooping binding table, so snooping must be on. Ports toward statically addressed infrastructure (the router and DHCP-01) must be trusted or their ARP is dropped too."})]},
+
+{ id:"s-vlanhop", title:"Sim: lock down the lobby switch", domain:"security", difficulty:2, objective:"4.3", objectives:["4.3","4.2"],
+  scenario:"A security scan found that the lobby kiosk's port can negotiate a trunk (DTP), letting it hop into any VLAN, and that unused ports are live. The kiosk belongs in the guest VLAN 30.",
+  tasks:[NET(null,{
+    devices:[RT("r1","R1",50,4,[IF("Gi0/0.10","10.10.0.1",M24,{vlan:10}),IF("Gi0/0.30","10.30.0.1",M24,{vlan:30})],{editable:false}),
+      SW("sw","SW-Lobby",50,44,[P("Gi0/1","access",10),P("Gi0/2","dynamic",1),P("Gi0/3","access",1),P("Gi0/4","access",1),P("Gi0/24","trunk",1,{allowed:"10,30"})],{vlanNames:{"10":"STAFF","30":"GUEST"}}),
+      H("pc","pc","Front-Desk",20,94,{ip:"10.10.0.20", mask:M24, gw:"10.10.0.1"}, false), H("kiosk","pc","Lobby-Kiosk",75,94,{ip:"10.30.0.50", mask:M24, gw:"10.30.0.1", dtp:true}, false)],
+    links:[["r1","Gi0/0","sw","Gi0/24"],["pc","NIC","sw","Gi0/1"],["kiosk","NIC","sw","Gi0/2"]],
+    goals:[{type:"state", check:"noVlanHop", dev:"sw", label:"No user port can form a trunk"},{type:"state", check:"unusedDown", dev:"sw", label:"Unused ports are shut down"},{type:"ping", from:"kiosk", to:"10.30.0.1", label:"Lobby-Kiosk reaches the guest gateway"},{type:"ping", from:"pc", to:"10.10.0.1", label:"Front-Desk reaches the staff gateway"}],
+    solution:[{dev:"sw", port:"Gi0/2", set:{mode:"access", vlan:30}},{dev:"sw", port:"Gi0/3", set:{shutdown:true}},{dev:"sw", port:"Gi0/4", set:{shutdown:true}}],
+    explanation:"Dynamic (DTP) ports trunk with anything that asks, which is switch spoofing. Hard-code user ports as access ports in the right VLAN and shut what isn't used."})]},
+
+{ id:"s-dns", title:"Sim: the intranet points to the old server", domain:"operations", difficulty:2, objective:"3.4", objectives:["3.4","5.3"],
+  scenario:"The intranet moved to Web-01 (10.70.0.80). intranet.corp.local is a CNAME for web01.corp.local. Desk-4 still opens the old server, nobody else can resolve it, and reverse lookups of 10.70.0.80 fail.",
+  tasks:[NET(null,{
+    devices:[SW("sw","SW1",50,40,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1),P("Gi0/4","access",1)],{editable:false}),
+      H("dns","server","DNS-01",10,30,{ip:"10.70.0.53", mask:M24, zone:[{name:"corp.local", type:"MX", value:"10 mail.corp.local"},{name:"mail.corp.local", type:"A", value:"10.70.0.25"},{name:"intranet.corp.local", type:"CNAME", value:"web01.corp.local"}]}),
+      H("web","server","Web-01",90,30,{ip:"10.70.0.80", mask:M24, services:["tcp/443","tcp/80"]}, false),
+      H("desk","pc","Desk-4",25,94,{ip:"10.70.0.104", mask:M24, dns:"10.70.0.53", hosts:{"intranet.corp.local":"10.70.0.99"}}),
+      H("desk2","pc","Desk-5",75,94,{ip:"10.70.0.105", mask:M24, dns:"10.70.0.53", os:"linux"}, false)],
+    links:[["dns","NIC","sw","Gi0/1"],["web","NIC","sw","Gi0/2"],["desk","NIC","sw","Gi0/3"],["desk2","NIC","sw","Gi0/4"]],
+    goals:[{type:"conn", from:"desk", to:"intranet.corp.local", proto:"tcp", port:443, label:"Desk-4 opens https://intranet.corp.local"},{type:"conn", from:"desk2", to:"intranet.corp.local", proto:"tcp", port:443, label:"Desk-5 opens https://intranet.corp.local"},{type:"dns", from:"desk2", name:"10.70.0.80", rtype:"PTR", value:"web01.corp.local", label:"A reverse lookup of 10.70.0.80 returns web01.corp.local"}],
+    solution:[{dev:"dns", zone:[{name:"corp.local", type:"MX", value:"10 mail.corp.local"},{name:"mail.corp.local", type:"A", value:"10.70.0.25"},{name:"intranet.corp.local", type:"CNAME", value:"web01.corp.local"},{name:"web01.corp.local", type:"A", value:"10.70.0.80"},{name:"80.0.70.10.in-addr.arpa", type:"PTR", value:"web01.corp.local"}]},{dev:"desk", set:{hosts:{}}}],
+    explanation:"A CNAME only works if its target has an A record. Reverse lookups need a PTR record in the reverse zone (80.0.70.10.in-addr.arpa). A hosts file entry overrides DNS on that one machine, which is why Desk-4 kept going to the old address."})]},
+
+{ id:"s-scope", title:"Sim: the DHCP scope is too small", domain:"operations", difficulty:2, objective:"3.4", objectives:["3.4","5.3"],
+  scenario:"The finance floor added PCs and a badge printer. Some PCs get APIPA addresses and one shows an address conflict with Printer-1 (static 192.168.20.101). Badge-Printer must always receive 192.168.20.50 (its MAC is 00:1b:63:84:45:e6).",
+  tasks:[NET(null,{
+    devices:[SW("sw","SW-Finance",50,30,[P("Gi0/1","access",1),P("Gi0/2","access",1),P("Gi0/3","access",1),P("Gi0/4","access",1),P("Gi0/5","access",1),P("Gi0/6","access",1),P("Gi0/7","access",1),P("Gi0/8","access",1)],{editable:false}),
+      H("dhcp","server","DHCP-01",8,8,{ip:"192.168.20.5", mask:M24, dhcp:[{network:"192.168.20.0/24", start:"192.168.20.100", end:"192.168.20.103", gw:"192.168.20.1", dns:"192.168.20.5", exclusions:[], reservations:[]}]}),
+      H("prn","printer","Printer-1",92,8,{ip:"192.168.20.101", mask:M24}, false),
+      H("f1","pc","Fin-1",5,94,{mode:"dhcp"}, false), H("f2","pc","Fin-2",22,94,{mode:"dhcp"}, false), H("f3","pc","Fin-3",39,94,{mode:"dhcp"}, false),
+      H("f4","pc","Fin-4",56,94,{mode:"dhcp"}, false), H("f5","pc","Fin-5",73,94,{mode:"dhcp"}, false), H("badge","printer","Badge-Printer",92,94,{mode:"dhcp", mac:"00:1b:63:84:45:e6"}, false)],
+    links:[["dhcp","NIC","sw","Gi0/1"],["prn","NIC","sw","Gi0/2"],["f1","NIC","sw","Gi0/3"],["f2","NIC","sw","Gi0/4"],["f3","NIC","sw","Gi0/5"],["f4","NIC","sw","Gi0/6"],["f5","NIC","sw","Gi0/7"],["badge","NIC","sw","Gi0/8"]],
+    goals:[{type:"dhcp", host:"f2", label:"Fin-2 gets a unique lease"},{type:"dhcp", host:"f5", label:"Fin-5 gets a lease"},{type:"dhcp", host:"badge", ip:"192.168.20.50", label:"Badge-Printer gets 192.168.20.50"},{type:"ping", from:"f5", to:"192.168.20.101", label:"Fin-5 can reach Printer-1"}],
+    solution:[{dev:"dhcp", pool:0, set:{end:"192.168.20.199", exclusions:["192.168.20.101"], reservations:[{mac:"00:1b:63:84:45:e6", ip:"192.168.20.50"}]}}],
+    explanation:"The scope had only four addresses (.100 to .103) for six clients, so it ran out. Printer-1's static address sat inside the range without an exclusion, so the server leased it again. A reservation ties an address to a MAC address."})]},
+
+{ id:"s-jumbo", title:"Sim: storage traffic stalls on jumbo frames", domain:"implementation", difficulty:2, objective:"2.2", objectives:["2.2","5.2"],
+  scenario:"The hypervisor and the iSCSI SAN both use 9000-byte jumbo frames. Small pings work, but storage traffic with full-size frames fails. Make the whole path support jumbo frames.",
+  tasks:[NET(null,{
+    devices:[SW("sw","SW-Storage",50,30,[P("Gi0/1","access",50,{mtu:9000}),P("Gi0/2","access",50)],{vlanNames:{"50":"ISCSI"}}),
+      H("esx","server","ESXi-01",15,90,{ip:"10.50.50.11", mask:M24, nic:{mtu:9000}, os:"linux"}, false), H("san","server","SAN-01",85,90,{ip:"10.50.50.20", mask:M24, nic:{mtu:9000}, os:"linux", services:["tcp/3260"]}, false)],
+    links:[["esx","NIC","sw","Gi0/1"],["san","NIC","sw","Gi0/2"]],
+    goals:[{type:"ping", from:"esx", to:"10.50.50.20", label:"ESXi-01 can reach SAN-01"},{type:"ping", from:"esx", to:"10.50.50.20", size:8972, df:true, label:"An 8972-byte ping with Don't Fragment set gets through"}],
+    solution:[{dev:"sw", port:"Gi0/2", set:{mtu:9000}}],
+    explanation:"Every hop must support the larger MTU. Test with ping -s 8972 -M do (Linux) or ping -l 8972 -f (Windows): 8972 bytes of data plus 28 bytes of IP and ICMP headers is exactly 9000."})]},
+
+{ id:"s-svi", title:"Sim: route VLANs on a Layer 3 switch", domain:"implementation", difficulty:2, objective:"2.2", objectives:["2.2","2.1"],
+  scenario:"Core-SW is a Layer 3 switch that routes between VLAN 10 (staff) and VLAN 20 (printing) using SVIs. Staff can reach their gateway but nothing in VLAN 20.",
+  tasks:[NET(null,{
+    devices:[{id:"core", kind:"l3switch", name:"Core-SW", x:50, y:30, editable:true, vlanNames:{"10":"STAFF","20":"PRINT"},
+        ports:[P("Gi1/0/1","access",10),P("Gi1/0/2","access",20),P("Gi1/0/3","access",1)], ifaces:[IF("Vlan10","10.10.0.1",M24,{vlan:10}),IF("Vlan20","10.20.0.1",M24,{vlan:20, shutdown:true})]},
+      H("pc","pc","Staff-PC",12,92,{ip:"10.10.0.30", mask:M24, gw:"10.10.0.1"}, false), H("prn","printer","Printer-A",50,94,{ip:"10.20.0.40", mask:M24, gw:"10.20.0.1"}, false),
+      H("prn2","printer","Printer-B",88,92,{ip:"10.20.0.41", mask:M24, gw:"10.20.0.1"}, false)],
+    links:[["pc","NIC","core","Gi1/0/1"],["prn","NIC","core","Gi1/0/2"],["prn2","NIC","core","Gi1/0/3"]],
+    goals:[{type:"ping", from:"pc", to:"10.20.0.40", label:"Staff-PC can reach Printer-A"},{type:"ping", from:"pc", to:"10.20.0.41", label:"Staff-PC can reach Printer-B"}],
+    solution:[{dev:"core", iface:"Vlan20", set:{shutdown:false}},{dev:"core", port:"Gi1/0/3", set:{vlan:20}}],
+    explanation:"A switch virtual interface (SVI) is the routed gateway for its VLAN; it was administratively shut down. Printer-B's port was also left in VLAN 1. An SVI only comes up when at least one port in its VLAN is up."})]},
+
+{ id:"s-voice", title:"Sim: the desk phone can't register", domain:"implementation", difficulty:2, objective:"2.2", objectives:["2.2"],
+  scenario:"Phone-12 tags its traffic for the voice VLAN 20 while the desk PC uses data VLAN 10. The phone powers up but can't reach Call-Mgr in VLAN 20.",
+  tasks:[NET(null,{
+    devices:[{id:"core", kind:"l3switch", name:"Core-SW", x:50, y:30, editable:true, vlanNames:{"10":"DATA","20":"VOICE"},
+        ports:[P("Gi1/0/1","access",10),P("Gi1/0/2","access",10),P("Gi1/0/3","access",20)], ifaces:[IF("Vlan10","10.10.0.1",M24,{vlan:10}),IF("Vlan20","10.20.0.1",M24,{vlan:20})]},
+      H("pc","pc","Desk-PC",12,92,{ip:"10.10.0.30", mask:M24, gw:"10.10.0.1"}, false),
+      H("ph","phone","Phone-12",50,94,{ip:"10.20.0.112", mask:M24, gw:"10.20.0.1", voiceVlan:20, poe:{std:"af", watts:6}}, false),
+      H("cm","server","Call-Mgr",88,92,{ip:"10.20.0.5", mask:M24, gw:"10.20.0.1"}, false)],
+    links:[["pc","NIC","core","Gi1/0/1"],["ph","NIC","core","Gi1/0/2"],["cm","NIC","core","Gi1/0/3"]],
+    goals:[{type:"ping", from:"ph", to:"10.20.0.5", label:"Phone-12 can reach Call-Mgr"},{type:"ping", from:"pc", to:"10.20.0.5", label:"Desk-PC can reach Call-Mgr"}],
+    solution:[{dev:"core", port:"Gi1/0/2", set:{voice:20}}],
+    explanation:"With switchport voice vlan 20, the access port accepts the phone's 802.1Q-tagged voice frames while untagged data stays in VLAN 10. Without it, tagged voice frames are dropped."})]},
+
+{ id:"s-native", title:"Sim: management traffic is leaking", domain:"troubleshooting", difficulty:3, objective:"5.3", objectives:["5.3","2.2","4.2"],
+  scenario:"Management VLAN 99 spans both switches and uses 10.99.0.0/24. A visitor laptop in VLAN 1 on SW2 can reach the switch management network, while Mgmt-2 on SW2 can't reach Mgmt-1. The trunk between the switches is the problem.",
+  tasks:[NET(null,{
+    devices:[SW("sw1","SW1",25,35,[P("Gi0/1","access",99),P("Gi0/24","trunk",1,{native:99})],{vlanNames:{"99":"MGMT"}}),
+      SW("sw2","SW2",75,35,[P("Gi0/1","access",99),P("Gi0/2","access",1),P("Gi0/24","trunk",1,{native:1})],{vlanNames:{"99":"MGMT"}}),
+      H("m1","pc","Mgmt-1",15,92,{ip:"10.99.0.11", mask:M24}, false), H("m2","pc","Mgmt-2",60,94,{ip:"10.99.0.12", mask:M24}, false),
+      H("v","laptop","Visitor",90,92,{ip:"10.99.0.200", mask:M24}, false)],
+    links:[["sw1","Gi0/24","sw2","Gi0/24"],["m1","NIC","sw1","Gi0/1"],["m2","NIC","sw2","Gi0/1"],["v","NIC","sw2","Gi0/2"]],
+    goals:[{type:"ping", from:"m2", to:"10.99.0.11", label:"Mgmt-2 can reach Mgmt-1"},{type:"ping", from:"v", to:"10.99.0.11", expect:false, label:"Visitor can't reach Mgmt-1"}],
+    solution:[{dev:"sw2", port:"Gi0/24", set:{native:99}}],
+    explanation:"Untagged frames on a trunk belong to the native VLAN, which must match on both ends. SW1 sent VLAN 99 untagged and SW2 put it in VLAN 1, joining two VLANs. The CDP native VLAN mismatch message in show logging points right at it."})]},
+
+{ id:"s-vpc", title:"Sim: build out a cloud VPC", domain:"concepts", difficulty:3, objective:"1.3", objectives:["1.3","4.3"],
+  scenario:"In this VPC, Web-01 sits in the public subnet with a public IP. DB-01 and Batch-02 sit in the private subnet with no public IPs. DB-01 needs outbound HTTPS for updates through the NAT gateway, and its security group should accept MySQL (3306) only from the public subnet.",
+  tasks:[NET(null,{
+    devices:[{id:"isp", kind:"cloud", name:"Internet", x:50, y:4, editable:false, ip:"198.51.100.1", records:{}},
+      {id:"igw", kind:"igw", name:"Internet gateway", x:50, y:24, editable:false, ifaces:[IF("ext","198.51.100.2",M24),IF("vpc","10.0.0.1","255.255.255.240")], defaultRoute:"198.51.100.1"},
+      RT("vr","VPC router",50,46,[IF("igw","10.0.0.2","255.255.255.240"),IF("public","10.0.1.1",M24,{routes:[{net:"0.0.0.0/0", via:"10.0.0.1"}]}),IF("private","10.0.2.1",M24,{routes:[{net:"0.0.0.0/0", via:"10.0.0.1"}]})]),
+      SW("pub","Public subnet",22,66,[P("p1","access",1),P("p2","access",1),P("up","access",1)],{editable:false}),
+      SW("prv","Private subnet",78,66,[P("p1","access",1),P("p2","access",1),P("up","access",1)],{editable:false}),
+      {id:"nat", kind:"natgw", name:"NAT gateway", x:5, y:94, editable:false, ifaces:[IF("eni","10.0.1.10",M24)], defaultRoute:"10.0.1.1", publicIp:"198.51.100.20"},
+      H("web","server","Web-01",38,94,{ip:"10.0.1.20", mask:M24, gw:"10.0.1.1", publicIp:"198.51.100.21", services:["tcp/443"]}, false),
+      H("db","server","DB-01",62,94,{ip:"10.0.2.30", mask:M24, gw:"10.0.2.1", services:["tcp/3306"], fw:{enabled:true, rules:[{action:"allow", proto:"tcp", port:"3306", src:"0.0.0.0/0"}]}}),
+      H("batch","server","Batch-02",95,94,{ip:"10.0.2.40", mask:M24, gw:"10.0.2.1"}, false)],
+    links:[["isp","WAN","igw","ext"],["igw","vpc","vr","igw"],["vr","public","pub","up"],["vr","private","prv","up"],["nat","eni","pub","p1"],["web","NIC","pub","p2"],["db","NIC","prv","p1"],["batch","NIC","prv","p2"]],
+    goals:[{type:"conn", from:"web", to:"10.0.2.30", proto:"tcp", port:3306, label:"Web-01 can reach DB-01 on 3306"},{type:"conn", from:"batch", to:"10.0.2.30", proto:"tcp", port:3306, expect:false, label:"Batch-02 can't reach DB-01 on 3306 (least privilege)"},{type:"conn", from:"db", to:"8.8.8.8", proto:"tcp", port:443, label:"DB-01 can reach the internet for updates"},{type:"ping", from:"web", to:"8.8.8.8", label:"Web-01 can reach the internet"}],
+    solution:[{dev:"vr", iface:"private", set:{routes:[{net:"0.0.0.0/0", via:"10.0.1.10"}]}},{dev:"db", set:{fw:{enabled:true, rules:[{action:"allow", proto:"tcp", port:"3306", src:"10.0.1.0/24"}]}}}],
+    explanation:"An internet gateway only passes traffic for instances with public IPs. Private subnets send 0.0.0.0/0 to a NAT gateway in a public subnet instead. Security groups are stateful allow lists, so scope the source to the subnet that needs access."})]}
+];
