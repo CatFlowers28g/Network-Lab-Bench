@@ -1,7 +1,7 @@
 /* ---------- app shell ---------- */
 
 "use strict";
-const APP_VERSION = "1.2.0";
+const APP_VERSION = "1.2.1";
 const ui = { view:"home", tab:"labs", cat:null, kind:"all", source:"all", run:null,
   gen:{domain:"troubleshooting", obj:"", type:"any", difficulty:2, count:1, topic:"", busy:false, status:"", err:false, added:[], ctl:null},
   importText:"", importMsg:"", cards:{mode:"weak", status:"", err:false, busy:false, ctl:null, fallback:"", showAll:false}, quizScope:"weak", quizCount:10, examLen:30 };

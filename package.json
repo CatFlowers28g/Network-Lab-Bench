@@ -1,6 +1,6 @@
 {
   "name": "lab-bench",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Free, open-source hands-on Network+ (N10-009) practice: network simulator, labs, quizzes, practice exams and Anki export.",
   "license": "MIT",
   "scripts": {
